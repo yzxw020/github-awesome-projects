@@ -1,0 +1,13 @@
+{
+  "name": "github-awesome-projects",
+  "version": "1.0.0",
+  "description": "自动发现并展示 GitHub 上有趣的高质量开源项目",
+  "main": "fetch-projects.js",
+  "scripts": {
+    "fetch": "node fetch-projects.js",
+    "start": "npx http-server . -p 8080 -c-1"
+  },
+  "keywords": ["github", "open-source", "projects", "awesome"],
+  "author": "王小虾",
+  "license": "MIT"
+}

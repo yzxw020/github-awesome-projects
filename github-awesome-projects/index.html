@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🌟 Awesome GitHub 项目</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #0d1117 0%, #1a1a2e 100%);
+      color: #c9d1d9;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    header {
+      text-align: center;
+      padding: 40px 20px 30px;
+    }
+    header h1 {
+      font-size: 2.2em;
+      background: linear-gradient(90deg, #58a6ff, #bc8cff, #f78166);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+    header p { color: #8b949e; font-size: 1.0em; }
+    .meta {
+      text-align: center;
+      color: #8b949e;
+      font-size: 0.9em;
+      margin-bottom: 30px;
+    }
+    .filters {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 30px;
+    }
+    .filter-btn {
+      padding: 6px 16px;
+      border: 1px solid #30363d;
+      border-radius: 20px;
+      background: transparent;
+      color: #8b949e;
+      cursor: pointer;
+      font-size: 0.9em;
+      transition: all 0.2s;
+    }
+    .filter-btn:hover, .filter-btn.active {
+      background: #238636;
+      color: #fff;
+      border-color: #238636;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 20px;
+      transition: transform 0.2s, border-color 0.2s;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: #58a6ff;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid #30363d;
+    }
+    .repo-name {
+      font-weight: 600;
+      color: #58a6ff;
+      font-size: 1.0em;
+      word-break: break-all;
+    }
+    .card-desc {
+      color: #8b949e;
+      font-size: 0.9em;
+      line-height: 1.5;
+      margin-bottom: 14px;
+      min-height: 42px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .card-footer {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 0.85em;
+      color: #8b949e;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .lang-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .star-icon::before { content: "⭐"; }
+    .fork-icon::before { content: "🔀"; }
+    .topic-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      background: #1f2937;
+      color: #8b949e;
+      border-radius: 12px;
+      font-size: 0.78em;
+      margin-right: 6px;
+    }
+    .topics { margin-bottom: 10px; }
+    .empty {
+      text-align: center;
+      padding: 60px 20px;
+      color: #8b949e;
+      grid-column: 1 / -1;
+    }
+    @media (max-width: 600px) {
+      .grid { grid-template-columns: 1fr; }
+      header h1 { font-size: 1.6em; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🌟 Awesome GitHub 项目</h1>
+  <p>每周自动发现 GitHub 上有趣的高质量开源项目</p>
+</header>
+
+<div class="meta" id="update-time">加载中...</div>
+
+<div class="filters" id="filters"></div>
+
+<div class="grid" id="project-grid">
+  <div class="empty">正在加载项目数据...</div>
+</div>
+
+<script>
+// 语言对应颜色
+const LANG_COLORS = {
+  Python: '#3572A5',
+  JavaScript: '#f1e05a',
+  TypeScript: '#3178c6',
+  Rust: '#dea584',
+  Go: '#00ADD8',
+  Java: '#b07219',
+  C: '#555555',
+  'C++': '#f34b7d',
+  C#: '#178600',
+  Ruby: '#701516',
+  Swift: '#F05138',
+  Kotlin: '#A97BFF',
+  Dart: '#00B4AB',
+  Shell: '#89e051',
+  HTML: '#e34c26',
+  CSS: '#563d7c',
+};
+
+let allProjects = [];
+let currentFilter = 'all';
+
+function renderFilters(languages) {
+  const container = document.getElementById('filters');
+  const langs = ['all', ...languages];
+  container.innerHTML = langs.map(lang => {
+    const label = lang === 'all' ? '全部' : lang;
+    return `<button class="filter-btn ${lang === 'all' ? 'active' : ''}" onclick="filterBy('${lang}')">${label}</button>`;
+  }).join('');
+}
+
+function filterBy(lang) {
+  currentFilter = lang;
+  document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+  event.target.classList.add('active');
+  renderProjects();
+}
+
+function renderProjects() {
+  const grid = document.getElementById('project-grid');
+  const filtered = currentFilter === 'all'
+    ? allProjects
+    : allProjects.filter(p => p.language === currentFilter);
+
+  if (filtered.length === 0) {
+    grid.innerHTML = '<div class="empty">没有找到匹配的项目 😅</div>';
+    return;
+  }
+
+  grid.innerHTML = filtered.map(p => {
+    const color = LANG_COLORS[p.language] || '#8b949e';
+    const topicsHTML = (p.topics || []).slice(0, 3).map(t => `<span class="topic-tag">${t}</span>`).join('');
+    return `
+      <a class="card" href="${p.url}" target="_blank" rel="noopener">
+        <div class="card-header">
+          <img class="avatar" src="${p.owner_avatar}" alt="${p.owner}" />
+          <span class="repo-name">${p.full_name}</span>
+        </div>
+        <div class="card-desc">${p.description || '暂无描述'}</div>
+        <div class="topics">${topicsHTML}</div>
+        <div class="card-footer">
+          <span class="badge"><span class="lang-dot" style="background:${color}"></span> ${p.language || '未知'}</span>
+          <span class="badge star-icon"> ${p.stars.toLocaleString()}</span>
+          <span class="badge fork-icon"> ${p.forks.toLocaleString()}</span>
+        </div>
+      </a>
+    `;
+  }).join('');
+}
+
+fetch('projects.json?t=' + Date.now())
+  .then(r => r.json())
+  .then(data => {
+    allProjects = data.projects || [];
+    document.getElementById('update-time').textContent =
+      `共 ${data.total || allProjects.length} 个项目 · 更新时间：${new Date(data.update_time).toLocaleString('zh-CN')}`;
+
+    // 提取所有语言用于过滤
+    const languages = [...new Set(allProjects.map(p => p.language).filter(Boolean))].sort();
+    renderFilters(languages);
+    renderProjects();
+  })
+  .catch(err => {
+    document.getElementById('project-grid').innerHTML =
+      '<div class="empty">加载失败，请检查 projects.json 是否存在 😢</div>';
+    console.error(err);
+  });
+</script>
+</body>
+</html>
