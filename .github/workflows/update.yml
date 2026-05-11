@@ -1,0 +1,94 @@
+name: 更新 GitHub 有趣项目
+
+on:
+  # 每周一早上 8:00 (北京时间 = UTC+8，即 UTC 周一 0:00)
+  schedule:
+    - cron: '0 0 * * 1'
+  # 允许手动触发
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+# 仅允许一个运行实例，避免并发
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 抓取 GitHub 项目数据
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node fetch-projects.js
+
+      - name: 提交并更新 projects.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add projects.json
+          git diff --quiet && echo "NO_UPDATE=true" >> $GITHUB_ENV || (git commit -m "chore: 每周自动更新项目数据 $(date +'%Y-%m-%d')" && git push)
+
+      # ====== 部署到 GitHub Pages ======
+      - name: 设置 GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: 上传构建产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: 部署到 GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
+
+      # ====== 发送微信通知（Server酱） ======
+      - name: 发送微信通知
+        if: always() && env.SERVERCHAN_KEY != ''
+        env:
+          SERVERCHAN_KEY: ${{ secrets.SERVERCHAN_KEY }}
+        run: |
+          PAGE_URL="${{ steps.deploy.outputs.page_url || format('https://{0}.github.io/{1}', github.repository_owner, github.event.repository.name) }}"
+          UPDATE_DATE=$(date -u +'%Y-%m-%d %H:%M UTC')
+
+          # 读取项目总数
+          TOTAL=$(python3 -c "import json; d=json.load(open('projects.json')); print(d.get('total', len(d.get('projects',[]))))" 2>/dev/null || echo "未知")
+
+          # 判断更新状态
+          if [ "$NO_UPDATE" = "true" ]; then
+            STATUS="✅ 数据无变化，页面已重新部署"
+          else
+            STATUS="🔄 数据已更新并部署"
+          fi
+
+          # 发送 Server酱 通知
+          curl -s -X POST "https://sctapi.ftqq.com/${SERVERCHAN_KEY}.send" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            --data-urlencode "title=🌟 GitHub Awesome Projects 已更新" \
+            --data-urlencode "desp=## ${STATUS}
+
+          📅 更新时间：${UPDATE_DATE}
+
+          📊 项目总数：${TOTAL} 个
+
+          🔗 查看页面：[点击访问](${PAGE_URL})
+
+          🏠 仓库地址：[github-awesome-projects](https://github.com/${{ github.repository }})
+
+          ---
+          > 每周一自动更新 · Powered by GitHub Actions"
